@@ -3,7 +3,7 @@ from qtpy.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLine
 from qtpy.QtCore import QEvent, Qt
 from magicgui import magicgui
 from qtpy.QtCore import Signal, QObject, QEvent
-
+from napari_tools_menu import register_dock_widget
 
 class MyQLineEdit(QLineEdit):
     keyup = Signal()
@@ -18,6 +18,7 @@ class MyQLineEdit(QLineEdit):
             return
         super().keyPressEvent(event)
 
+@register_dock_widget(menu="Utilities > Plugin search")
 class PluginSearch(QWidget):
     def __init__(self, napari_viewer):
         from napari.plugins import plugin_manager
