@@ -77,7 +77,7 @@ class PluginSearch(QWidget):
         self.layout().addWidget(results)
 
 def _add_result(results, plugin_name, widget_name):
-    item = QListWidgetItem(plugin_name + ": " + widget_name)
+    item = QListWidgetItem(widget_name + " (" + plugin_name + ")")
     item.plugin_name = plugin_name
     item.widget_name = widget_name
     results.addItem(item)
