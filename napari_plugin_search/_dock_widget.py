@@ -27,15 +27,22 @@ class PluginSearch(QWidget):
 
         seach_field = MyQLineEdit("")
         results = QListWidget()
+        results.setVisible(False)
 
         def text_changed(*args, **kwargs):
             search_string = seach_field.text().lower()
             results.clear()
-            for hook_type, (plugin_name, widgets) in plugin_manager.iter_widgets():
-                for widget in widgets:
-                    if search_string in plugin_name.lower() or search_string in widget.lower():
-                        _add_result(results, plugin_name, widget)
-            results.sortItems()
+            if len(search_string) > 0:
+                results.setVisible(True)
+                for hook_type, (plugin_name, widgets) in plugin_manager.iter_widgets():
+                    for widget in widgets:
+                        if search_string in plugin_name.lower() or search_string in widget.lower():
+                            _add_result(results, plugin_name, widget)
+                results.sortItems()
+                self.setMaximumHeight(300)
+            else:
+                results.setVisible(False)
+                self.setMaximumHeight(50)
 
         def key_up():
             if results.currentRow() > 0:
@@ -48,6 +55,8 @@ class PluginSearch(QWidget):
         seach_field.keyup.connect(key_up)
         seach_field.keydown.connect(key_down)
         seach_field.textChanged.connect(text_changed)
+        seach_field.setMaximumHeight(30)
+        self.setMaximumHeight(50)
 
         def item_double_clicked():
             item = results.currentItem()
