@@ -4,6 +4,7 @@ from qtpy.QtCore import QEvent, Qt
 from magicgui import magicgui
 from qtpy.QtCore import Signal, QObject, QEvent
 from napari_tools_menu import register_dock_widget
+from functools import lru_cache
 
 class MyQLineEdit(QLineEdit):
     keyup = Signal()
@@ -21,7 +22,6 @@ class MyQLineEdit(QLineEdit):
 @register_dock_widget(menu="Utilities > Plugin search")
 class PluginSearch(QWidget):
     def __init__(self, napari_viewer):
-        from napari.plugins import plugin_manager
         super().__init__()
         self.viewer = napari_viewer
 
@@ -34,7 +34,7 @@ class PluginSearch(QWidget):
             results.clear()
             if len(search_string) > 0:
                 results.setVisible(True)
-                for hook_type, (plugin_name, widgets) in plugin_manager.iter_widgets():
+                for plugin_name, widgets in _get_all_widgets():
                     for widget in widgets:
                         if search_string in plugin_name.lower() or search_string in widget.lower():
                             _add_result(results, plugin_name, widget)
@@ -63,7 +63,7 @@ class PluginSearch(QWidget):
             if item is not None:
 
 
-                widget, widget_type = _get_widget(item.plugin_name, item.widget_name)
+                widget, widget_type = _get_widget(item.plugin_name, item.widget_name, viewer=napari_viewer)
 
                 if widget_type == "function":
                     napari_viewer.window.add_dock_widget(magicgui(widget), area='right', name=item.plugin_name + ": " + item.widget_name)
@@ -97,13 +97,75 @@ def _add_result(results, plugin_name, widget_name):
     item.widget_name = widget_name
     results.addItem(item)
 
-def _get_widget(plugin_name, widget_name):
+
+def _get_widget(plugin_name, widget_name, viewer=None):
+    # try npe1
     from napari.plugins import plugin_manager
     if plugin_name in plugin_manager._function_widgets:
         functions = plugin_manager._function_widgets[plugin_name]
         if widget_name in functions:
             return functions[widget_name], "function"
-    return plugin_manager.get_widget(plugin_name, widget_name)[0], "widget"
+
+    try:
+        result = plugin_manager.get_widget(plugin_name, widget_name)[0], "widget"
+        if result is not None:
+            return result
+    except:
+        pass
+
+    # try npe2
+    result = get_widget_contribution(plugin_name, widget_name)
+    if result is not None:
+        return widget_name, "widget"
+
+
+@lru_cache(maxsize=1)
+def _get_all_widgets():
+    all_widgets = {}
+
+    # collect all widgets from npe1
+    from napari.plugins import plugin_manager
+    try:
+        for hook_type, (plugin_name, widgets) in plugin_manager.iter_widgets():
+            all_widgets[plugin_name] = widgets
+    except:
+        pass
+
+    # collect all widgets from npe2
+    try:
+        import npe2
+    except ImportError:
+        print("Assistant skips harvesting npe2 as it's not installed.")
+        return all_widgets
+
+    pm = npe2.PluginManager.instance()
+
+    for pname, item in pm._manifests.items():
+        if item.contributions.widgets is not None:
+            widgets = []
+            for c in item.contributions.widgets:
+                wname = c.display_name
+
+                t = get_widget_contribution(pname, wname)
+                if t is not None:
+                    plugin_name = t[1]
+                    widgets.append(plugin_name)
+            all_widgets[pname] = widgets
+    return all_widgets.items()
+
+
+
+# source: https://github.com/napari/napari/blob/1363bd47da668a5826a75a73be93f7a7f8042fd7/napari/plugins/_npe2.py#L91
+def get_widget_contribution(
+        plugin_name: str, widget_name: str = None
+):
+    import npe2
+    for contrib in npe2.PluginManager.instance().iter_widgets():
+        if contrib.plugin_name == plugin_name and (
+                not widget_name or contrib.display_name == widget_name
+        ):
+            return contrib.get_callable(), contrib.display_name
+    return None
 
 @napari_hook_implementation
 def napari_experimental_provide_dock_widget():
