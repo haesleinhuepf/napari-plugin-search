@@ -23,6 +23,8 @@ You can install `napari-plugin-search` via [pip]:
 
     pip install napari-plugin-search
 
+Note: This plugin is not compatible with napari 0.6.0 or later.
+
 ## Contributing
 
 Contributions are very welcome. Tests can be run with [tox], please ensure
